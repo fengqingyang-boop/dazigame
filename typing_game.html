@@ -789,8 +789,8 @@
                 if (item) {
                     const div = document.createElement('div');
                     div.className = 'active-item';
-                    const remaining = Math.ceil((effect.endTime - Date.now()) / 1000);
-                    div.innerHTML = `${item.icon} ${item.name} (${remaining}s)`;
+                    const remainingSeconds = Math.max(0, Math.ceil(effect.remainingMs / 1000));
+                    div.innerHTML = `${item.icon} ${item.name} (${remainingSeconds}s)`;
                     activeItems.appendChild(div);
                 }
             });
@@ -882,12 +882,17 @@
             const level = LEVELS[gameState.currentLevel - 1];
             let speedMultiplier = 1;
             
+            // 更新所有活跃效果的剩余时间
+            const deltaMs = deltaTime * 1000;
+            gameState.activeEffects = gameState.activeEffects.filter(effect => {
+                effect.remainingMs -= deltaMs;
+                return effect.remainingMs > 0;
+            });
+            
             // 检查减速效果
             const slowEffect = gameState.activeEffects.find(e => e.id === 'slowTime');
-            if (slowEffect && Date.now() < slowEffect.endTime) {
+            if (slowEffect) {
                 speedMultiplier = 0.5;
-            } else if (slowEffect) {
-                gameState.activeEffects = gameState.activeEffects.filter(e => e.id !== 'slowTime');
             }
             
             // 更新气泡位置并收集需要移除的气泡
@@ -953,11 +958,27 @@
             gameState.bubbles.push(bubble);
         }
 
+        // 道具按键映射
+        const ITEM_KEY_MAP = {
+            '1': 'slowTime',
+            '2': 'doubleScore',
+            '3': 'shield',
+            '4': 'clearScreen',
+            '5': 'comboBoost'
+        };
+
         // 处理按键
         function handleKeyPress(e) {
             if (!gameState.isPlaying || gameState.isPaused) return;
             
             const key = e.key.toUpperCase();
+            
+            // 处理数字键（使用道具）
+            if (ITEM_KEY_MAP[key]) {
+                const itemId = ITEM_KEY_MAP[key];
+                useItemInGame(itemId);
+                return;
+            }
             
             // 处理空格键（磁铁效果）
             if (e.code === 'Space') {
@@ -1020,18 +1041,14 @@
             
             // 检查双倍得分效果
             const doubleEffect = gameState.activeEffects.find(e => e.id === 'doubleScore');
-            if (doubleEffect && Date.now() < doubleEffect.endTime) {
+            if (doubleEffect && doubleEffect.remainingMs > 0) {
                 scoreMultiplier = 2;
-            } else if (doubleEffect) {
-                gameState.activeEffects = gameState.activeEffects.filter(e => e.id !== 'doubleScore');
             }
             
             // 检查连击加成效果
             const comboEffect = gameState.activeEffects.find(e => e.id === 'comboBoost');
-            if (comboEffect && Date.now() < comboEffect.endTime) {
+            if (comboEffect && comboEffect.remainingMs > 0) {
                 comboMultiplier = 2;
-            } else if (comboEffect) {
-                gameState.activeEffects = gameState.activeEffects.filter(e => e.id !== 'comboBoost');
             }
             
             if (incrementCombo) {
@@ -1291,29 +1308,29 @@
                 
                 let isDisabled = false;
                 let statusText = '';
+                let canUseInShop = true;
                 
                 if (isOwned) {
                     const uses = ownedItem.uses || 0;
                     
                     if (item.effect === 'life') {
-                        statusText = `<div class="item-status">可使用</div>`;
+                        statusText = `<div class="item-status">剩余: ${uses} 次 (游戏中可用)</div>`;
+                        canUseInShop = false;
+                        if (uses <= 0) isDisabled = true;
                     } else if (item.effect === 'clear') {
                         const usedCount = gameState.usedItems['clearScreen'] || 0;
                         const remaining = Math.max(0, uses - usedCount);
-                        statusText = `<div class="item-status">剩余: ${remaining} 次</div>`;
-                        if (remaining <= 0) {
-                            isDisabled = true;
-                        }
+                        statusText = `<div class="item-status">剩余: ${remaining} 次 (游戏中可用)</div>`;
+                        canUseInShop = false;
+                        if (remaining <= 0) isDisabled = true;
                     } else if (item.effect === 'magnet') {
-                        statusText = `<div class="item-status">剩余: ${uses} 次</div>`;
-                        if (uses <= 0) {
-                            isDisabled = true;
-                        }
+                        statusText = `<div class="item-status">剩余: ${uses} 次 (按空格使用)</div>`;
+                        canUseInShop = false;
+                        if (uses <= 0) isDisabled = true;
                     } else {
-                        statusText = `<div class="item-status">剩余: ${uses} 次</div>`;
-                        if (uses <= 0) {
-                            isDisabled = true;
-                        }
+                        statusText = `<div class="item-status">剩余: ${uses} 次 (游戏中可用)</div>`;
+                        canUseInShop = false;
+                        if (uses <= 0) isDisabled = true;
                     }
                 }
                 
@@ -1332,9 +1349,13 @@
                 `;
                 
                 div.addEventListener('click', () => {
-                    if (!isOwned && canAfford) {
+                    const currentOwnedItem = gameState.ownedItems[item.id];
+                    const currentIsOwned = !!currentOwnedItem;
+                    const currentCanAfford = gameState.coins >= item.price;
+                    
+                    if (!currentIsOwned && currentCanAfford) {
                         buyItem(item);
-                    } else if (isOwned && !isDisabled) {
+                    } else if (currentIsOwned && canUseInShop && !isDisabled) {
                         useItem(item);
                     }
                 });
@@ -1364,24 +1385,29 @@
             renderShop();
         }
 
-        // 使用道具
-        function useItem(item) {
-            const ownedItem = gameState.ownedItems[item.id];
-            if (!ownedItem) return;
+        // 使用道具（在游戏中调用）
+        function useItemInGame(itemId) {
+            if (!gameState.isPlaying) return false;
+            
+            const item = ITEMS.find(i => i.id === itemId);
+            if (!item) return false;
+            
+            const ownedItem = gameState.ownedItems[itemId];
+            if (!ownedItem) return false;
             
             const uses = ownedItem.uses || 0;
-            if (uses <= 0 && item.effect !== 'life') return;
+            if (uses <= 0) return false;
             
             switch (item.effect) {
                 case 'life':
                     const level = LEVELS[gameState.currentLevel - 1];
-                    if (gameState.lives < level.lives && uses > 0) {
+                    if (gameState.lives < level.lives) {
                         gameState.lives++;
                         ownedItem.uses--;
                         updateDisplays();
-                        renderShop();
+                        return true;
                     }
-                    break;
+                    return false;
                     
                 case 'clear':
                     if (!gameState.usedItems['clearScreen']) {
@@ -1395,29 +1421,34 @@
                             popBubble(0, false);
                         }
                         gameState.usedItems['clearScreen']++;
-                        renderShop();
+                        return true;
                     }
-                    break;
+                    return false;
                     
                 case 'slow':
                 case 'double':
                 case 'combo':
-                    if (uses > 0) {
-                        const existingEffect = gameState.activeEffects.find(e => e.id === item.id);
-                        if (existingEffect) {
-                            existingEffect.endTime = Date.now() + item.duration;
-                        } else {
-                            gameState.activeEffects.push({
-                                id: item.id,
-                                endTime: Date.now() + item.duration
-                            });
-                        }
-                        ownedItem.uses--;
-                        updateDisplays();
-                        renderShop();
+                    const existingEffect = gameState.activeEffects.find(e => e.id === item.id);
+                    if (existingEffect) {
+                        existingEffect.remainingMs += item.duration;
+                    } else {
+                        gameState.activeEffects.push({
+                            id: item.id,
+                            remainingMs: item.duration
+                        });
                     }
-                    break;
+                    ownedItem.uses--;
+                    updateDisplays();
+                    return true;
+                    
+                default:
+                    return false;
             }
+        }
+
+        // 使用道具（商店中调用 - 现在只做购买，不做使用）
+        function useItem(item) {
+            return false;
         }
 
         // 初始化游戏
