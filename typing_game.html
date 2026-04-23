@@ -890,16 +890,22 @@
                 gameState.activeEffects = gameState.activeEffects.filter(e => e.id !== 'slowTime');
             }
             
-            // 更新气泡位置
+            // 更新气泡位置并收集需要移除的气泡
+            const bubblesToRemove = [];
             gameState.bubbles.forEach((bubble, index) => {
                 bubble.y += level.bubbleSpeed * speedMultiplier * deltaTime * 60;
                 bubble.element.style.top = bubble.y + 'px';
                 
                 // 检查是否到达底部
                 if (bubble.y > window.innerHeight - 50) {
-                    loseLife();
-                    removeBubble(index);
+                    bubblesToRemove.push(bubble.letter);
                 }
+            });
+            
+            // 移除到达底部的气泡
+            bubblesToRemove.forEach(letter => {
+                loseLife();
+                removeBubbleByLetter(letter);
             });
             
             updateDisplays();
@@ -1000,6 +1006,8 @@
             const bubble = gameState.bubbles[index];
             if (!bubble) return;
             
+            const bubbleLetter = bubble.letter;
+            
             // 添加动画类
             bubble.element.classList.add('pop');
             
@@ -1041,9 +1049,9 @@
             gameState.totalPopped++;
             gameState.currentTarget--;
             
-            // 移除气泡
+            // 使用字母而不是索引来移除气泡，避免索引失效问题
             setTimeout(() => {
-                removeBubble(index);
+                removeBubbleByLetter(bubbleLetter);
             }, 300);
             
             updateDisplays();
@@ -1082,6 +1090,14 @@
             setTimeout(() => {
                 particlesContainer.remove();
             }, 500);
+        }
+
+        // 移除气泡（按字母）
+        function removeBubbleByLetter(letter) {
+            const index = gameState.bubbles.findIndex(b => b.letter === letter);
+            if (index !== -1) {
+                removeBubble(index);
+            }
         }
 
         // 移除气泡
@@ -1269,21 +1285,43 @@
             shopContainer.innerHTML = '';
             
             ITEMS.forEach(item => {
-                const isOwned = gameState.ownedItems[item.id];
+                const ownedItem = gameState.ownedItems[item.id];
+                const isOwned = !!ownedItem;
                 const canAfford = gameState.coins >= item.price;
-                const isDisabled = isOwned && !item.uses;
                 
-                const div = document.createElement('div');
-                div.className = `shop-item ${isOwned ? 'owned' : ''} ${!canAfford && !isOwned ? 'disabled' : ''}`;
-                
+                let isDisabled = false;
                 let statusText = '';
+                
                 if (isOwned) {
-                    if (item.uses) {
-                        statusText = `<div class="item-status">剩余: ${gameState.ownedItems[item.id]?.uses || 0} 次</div>`;
+                    const uses = ownedItem.uses || 0;
+                    
+                    if (item.effect === 'life') {
+                        statusText = `<div class="item-status">可使用</div>`;
+                    } else if (item.effect === 'clear') {
+                        const usedCount = gameState.usedItems['clearScreen'] || 0;
+                        const remaining = Math.max(0, uses - usedCount);
+                        statusText = `<div class="item-status">剩余: ${remaining} 次</div>`;
+                        if (remaining <= 0) {
+                            isDisabled = true;
+                        }
+                    } else if (item.effect === 'magnet') {
+                        statusText = `<div class="item-status">剩余: ${uses} 次</div>`;
+                        if (uses <= 0) {
+                            isDisabled = true;
+                        }
                     } else {
-                        statusText = `<div class="item-status">已拥有 ✓</div>`;
+                        statusText = `<div class="item-status">剩余: ${uses} 次</div>`;
+                        if (uses <= 0) {
+                            isDisabled = true;
+                        }
                     }
                 }
+                
+                const div = document.createElement('div');
+                const classes = ['shop-item'];
+                if (isOwned) classes.push('owned');
+                if ((!canAfford && !isOwned) || isDisabled) classes.push('disabled');
+                div.className = classes.join(' ');
                 
                 div.innerHTML = `
                     <div class="item-icon">${item.icon}</div>
@@ -1296,9 +1334,7 @@
                 div.addEventListener('click', () => {
                     if (!isOwned && canAfford) {
                         buyItem(item);
-                    } else if (isOwned && item.effect === 'life' && gameState.lives < LEVELS[gameState.currentLevel - 1].lives) {
-                        useItem(item);
-                    } else if (isOwned && (item.effect === 'clear' || item.effect === 'slow' || item.effect === 'double' || item.effect === 'combo')) {
+                    } else if (isOwned && !isDisabled) {
                         useItem(item);
                     }
                 });
@@ -1312,10 +1348,16 @@
             if (gameState.coins < item.price) return;
             
             gameState.coins -= item.price;
-            gameState.ownedItems[item.id] = {
-                ...item,
-                uses: item.uses || 1
-            };
+            
+            const existingItem = gameState.ownedItems[item.id];
+            if (existingItem) {
+                existingItem.uses = (existingItem.uses || 0) + (item.uses || 1);
+            } else {
+                gameState.ownedItems[item.id] = {
+                    ...item,
+                    uses: item.uses || 1
+                };
+            }
             
             shopCoins.textContent = gameState.coins;
             updateDisplays();
@@ -1327,12 +1369,17 @@
             const ownedItem = gameState.ownedItems[item.id];
             if (!ownedItem) return;
             
+            const uses = ownedItem.uses || 0;
+            if (uses <= 0 && item.effect !== 'life') return;
+            
             switch (item.effect) {
                 case 'life':
                     const level = LEVELS[gameState.currentLevel - 1];
-                    if (gameState.lives < level.lives) {
+                    if (gameState.lives < level.lives && uses > 0) {
                         gameState.lives++;
+                        ownedItem.uses--;
                         updateDisplays();
+                        renderShop();
                     }
                     break;
                     
@@ -1340,24 +1387,35 @@
                     if (!gameState.usedItems['clearScreen']) {
                         gameState.usedItems['clearScreen'] = 0;
                     }
-                    if (gameState.usedItems['clearScreen'] < (item.useLimit || 1)) {
-                        // 清除所有气泡
+                    const usedCount = gameState.usedItems['clearScreen'];
+                    const remaining = Math.max(0, uses - usedCount);
+                    
+                    if (remaining > 0) {
                         while (gameState.bubbles.length > 0) {
                             popBubble(0, false);
                         }
                         gameState.usedItems['clearScreen']++;
+                        renderShop();
                     }
                     break;
                     
                 case 'slow':
                 case 'double':
                 case 'combo':
-                    // 添加持续效果
-                    gameState.activeEffects.push({
-                        id: item.id,
-                        endTime: Date.now() + item.duration
-                    });
-                    updateDisplays();
+                    if (uses > 0) {
+                        const existingEffect = gameState.activeEffects.find(e => e.id === item.id);
+                        if (existingEffect) {
+                            existingEffect.endTime = Date.now() + item.duration;
+                        } else {
+                            gameState.activeEffects.push({
+                                id: item.id,
+                                endTime: Date.now() + item.duration
+                            });
+                        }
+                        ownedItem.uses--;
+                        updateDisplays();
+                        renderShop();
+                    }
                     break;
             }
         }
