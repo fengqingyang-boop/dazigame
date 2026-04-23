@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打字游戏 - 泡泡大作战</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .game-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-info {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .info-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: transform 0.1s;
+            z-index: 10;
+        }
+
+        .bubble:hover {
+            transform: scale(1.1);
+        }
+
+        .bubble.pop {
+            animation: pop 0.3s ease-out forwards;
+        }
+
+        @keyframes pop {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0);
+                opacity: 0;
+            }
+        }
+
+        .particles {
+            position: absolute;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            animation: particleFade 0.5s ease-out forwards;
+        }
+
+        @keyframes particleFade {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(0) translateY(-20px);
+                opacity: 0;
+            }
+        }
+
+        .start-screen, .level-complete-screen, .game-over-screen, .shop-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+            color: white;
+        }
+
+        .screen-title {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+        }
+
+        .screen-subtitle {
+            font-size: 20px;
+            margin-bottom: 30px;
+            color: #aaa;
+        }
+
+        .btn {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin: 10px;
+            font-weight: bold;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn:disabled {
+            background: #555;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .level-info {
+            font-size: 24px;
+            margin: 20px 0;
+            color: #ffd700;
+        }
+
+        .mission {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px 40px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .mission-title {
+            font-size: 20px;
+            color: #4ecdc4;
+            margin-bottom: 10px;
+        }
+
+        .mission-text {
+            font-size: 16px;
+            color: #ccc;
+        }
+
+        .reward {
+            color: #ffd700;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+
+        .shop-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 800px;
+            margin: 20px;
+            padding: 20px;
+        }
+
+        .shop-item {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .shop-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: #4ecdc4;
+        }
+
+        .shop-item.owned {
+            background: rgba(78, 205, 196, 0.3);
+            border-color: #4ecdc4;
+        }
+
+        .shop-item.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .item-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .item-name {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #ffd700;
+        }
+
+        .item-price {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #4ecdc4;
+        }
+
+        .item-desc {
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
+        .item-status {
+            font-size: 14px;
+            margin-top: 10px;
+            color: #4ecdc4;
+            font-weight: bold;
+        }
+
+        .active-items {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+
+        .active-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin: 5px;
+            padding: 5px 10px;
+            background: rgba(78, 205, 196, 0.3);
+            border-radius: 5px;
+            color: white;
+            font-size: 12px;
+        }
+
+        .combo-display {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px 25px;
+            border-radius: 10px;
+            z-index: 100;
+            text-align: center;
+        }
+
+        .combo-text {
+            color: #aaa;
+            font-size: 12px;
+        }
+
+        .combo-value {
+            color: #ff6b6b;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 107, 107, 0.8);
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 8px;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4ecdc4, #44a08d);
+            transition: width 0.3s;
+        }
+
+        .lives-container {
+            display: flex;
+            gap: 5px;
+        }
+
+        .life {
+            width: 20px;
+            height: 20px;
+            background: #ff6b6b;
+            clip-path: polygon(50% 0%, 100% 35%, 100% 70%, 50% 100%, 0% 70%, 0% 35%);
+        }
+
+        .life.lost {
+            background: #555;
+        }
+
+        .countdown {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 120px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            z-index: 150;
+            animation: countdownPulse 1s ease-out;
+        }
+
+        @keyframes countdownPulse {
+            0% {
+                transform: translate(-50%, -50%) scale(2);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 0.8;
+            }
+        }
+
+        .final-stats {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px 40px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .stat-value {
+            color: #ffd700;
+            font-weight: bold;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .bubble.danger {
+            animation: dangerPulse 0.5s infinite;
+        }
+
+        @keyframes dangerPulse {
+            0%, 100% {
+                box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 25px rgba(255, 0, 0, 0.8);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container" id="gameContainer">
+        <div class="game-info" id="gameInfo">
+            <div class="info-item">
+                <span>关卡:</span>
+                <span class="info-value" id="levelDisplay">1</span>
+            </div>
+            <div class="info-item">
+                <span>分数:</span>
+                <span class="info-value" id="scoreDisplay">0</span>
+            </div>
+            <div class="info-item">
+                <span>金币:</span>
+                <span class="info-value" id="coinsDisplay">0</span>
+            </div>
+            <div class="info-item">
+                <span>生命:</span>
+                <div class="lives-container" id="livesContainer"></div>
+            </div>
+            <div class="info-item">
+                <span>剩余目标:</span>
+                <span class="info-value" id="targetDisplay">0</span>
+            </div>
+        </div>
+
+        <div class="combo-display" id="comboDisplay">
+            <div class="combo-text">连击</div>
+            <div class="combo-value" id="comboValue">0</div>
+        </div>
+
+        <div class="active-items" id="activeItems"></div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <h1 class="screen-title">🫧 打字游戏 - 泡泡大作战 🫧</h1>
+            <p class="screen-subtitle">按下键盘上的字母，消灭从天而降的泡泡！</p>
+            <div class="mission">
+                <div class="mission-title">游戏说明</div>
+                <div class="mission-text">
+                    🌟 天上会掉落带有字母的泡泡<br>
+                    🌟 按下对应的字母键，泡泡就会炸开<br>
+                    🌟 同一时刻不会出现相同的字母<br>
+                    🌟 完成每关任务获得金币奖励<br>
+                    🌟 使用金币购买道具，帮助你通关！
+                </div>
+            </div>
+            <button class="btn btn-primary" id="startBtn">开始游戏</button>
+        </div>
+
+        <div class="level-complete-screen hidden" id="levelCompleteScreen">
+            <h1 class="screen-title">🎉 关卡完成！</h1>
+            <div class="level-info" id="levelCompleteInfo"></div>
+            <div class="mission">
+                <div class="mission-title">任务完成</div>
+                <div class="mission-text" id="levelMissionText"></div>
+                <div class="reward" id="levelReward"></div>
+            </div>
+            <div class="final-stats" id="levelStats"></div>
+            <button class="btn btn-secondary" id="goToShopBtn">打开商店</button>
+            <button class="btn btn-primary" id="nextLevelBtn">下一关</button>
+        </div>
+
+        <div class="game-over-screen hidden" id="gameOverScreen">
+            <h1 class="screen-title">💀 游戏结束</h1>
+            <div class="level-info" id="gameOverLevel"></div>
+            <div class="final-stats" id="finalStats"></div>
+            <button class="btn btn-primary" id="restartBtn">重新开始</button>
+        </div>
+
+        <div class="shop-screen hidden" id="shopScreen">
+            <h1 class="screen-title">🛒 道具商店</h1>
+            <div class="level-info">当前金币: <span id="shopCoins">0</span></div>
+            <div class="shop-container" id="shopContainer"></div>
+            <button class="btn btn-secondary" id="backToGameBtn">返回游戏</button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏配置
+        const LEVELS = [
+            {
+                level: 1,
+                name: "新手入门",
+                mission: "消灭 10 个泡泡",
+                target: 10,
+                reward: 50,
+                bubbleSpeed: 0.8,
+                spawnInterval: 2000,
+                maxBubbles: 5,
+                lives: 3
+            },
+            {
+                level: 2,
+                name: "初露锋芒",
+                mission: "消灭 20 个泡泡",
+                target: 20,
+                reward: 80,
+                bubbleSpeed: 1,
+                spawnInterval: 1800,
+                maxBubbles: 6,
+                lives: 3
+            },
+            {
+                level: 3,
+                name: "小试牛刀",
+                mission: "消灭 30 个泡泡",
+                target: 30,
+                reward: 100,
+                bubbleSpeed: 1.2,
+                spawnInterval: 1600,
+                maxBubbles: 7,
+                lives: 3
+            },
+            {
+                level: 4,
+                name: "渐入佳境",
+                mission: "消灭 40 个泡泡，获得 5 连击",
+                target: 40,
+                reward: 150,
+                bubbleSpeed: 1.4,
+                spawnInterval: 1400,
+                maxBubbles: 8,
+                lives: 3,
+                bonusTarget: 5
+            },
+            {
+                level: 5,
+                name: "驾轻就熟",
+                mission: "消灭 50 个泡泡",
+                target: 50,
+                reward: 200,
+                bubbleSpeed: 1.6,
+                spawnInterval: 1200,
+                maxBubbles: 9,
+                lives: 3
+            },
+            {
+                level: 6,
+                name: "炉火纯青",
+                mission: "消灭 60 个泡泡，获得 10 连击",
+                target: 60,
+                reward: 250,
+                bubbleSpeed: 1.8,
+                spawnInterval: 1000,
+                maxBubbles: 10,
+                lives: 3,
+                bonusTarget: 10
+            },
+            {
+                level: 7,
+                name: "出神入化",
+                mission: "消灭 70 个泡泡",
+                target: 70,
+                reward: 300,
+                bubbleSpeed: 2,
+                spawnInterval: 900,
+                maxBubbles: 11,
+                lives: 3
+            },
+            {
+                level: 8,
+                name: "登峰造极",
+                mission: "消灭 80 个泡泡，获得 15 连击",
+                target: 80,
+                reward: 350,
+                bubbleSpeed: 2.2,
+                spawnInterval: 800,
+                maxBubbles: 12,
+                lives: 3,
+                bonusTarget: 15
+            },
+            {
+                level: 9,
+                name: "绝世高手",
+                mission: "消灭 90 个泡泡",
+                target: 90,
+                reward: 400,
+                bubbleSpeed: 2.4,
+                spawnInterval: 700,
+                maxBubbles: 13,
+                lives: 3
+            },
+            {
+                level: 10,
+                name: "打字大师",
+                mission: "消灭 100 个泡泡，获得 20 连击",
+                target: 100,
+                reward: 500,
+                bubbleSpeed: 2.6,
+                spawnInterval: 600,
+                maxBubbles: 15,
+                lives: 3,
+                bonusTarget: 20
+            }
+        ];
+
+        const ITEMS = [
+            {
+                id: 'slowTime',
+                name: '时间减速',
+                icon: '⏳',
+                price: 100,
+                description: '泡泡下落速度减慢 50%，持续 10 秒',
+                effect: 'slow',
+                duration: 10000,
+                owned: false
+            },
+            {
+                id: 'doubleScore',
+                name: '双倍得分',
+                icon: '⭐',
+                price: 150,
+                description: '消灭泡泡获得双倍分数，持续 15 秒',
+                effect: 'double',
+                duration: 15000,
+                owned: false
+            },
+            {
+                id: 'shield',
+                name: '保护罩',
+                icon: '🛡️',
+                price: 200,
+                description: '获得 1 次额外生命',
+                effect: 'life',
+                owned: false
+            },
+            {
+                id: 'clearScreen',
+                name: '清屏炸弹',
+                icon: '💥',
+                price: 250,
+                description: '清除屏幕上所有泡泡（每关限用1次）',
+                effect: 'clear',
+                owned: false,
+                useLimit: 1
+            },
+            {
+                id: 'comboBoost',
+                name: '连击加成',
+                icon: '🔥',
+                price: 180,
+                description: '连击计数速度翻倍，持续 20 秒',
+                effect: 'combo',
+                duration: 20000,
+                owned: false
+            },
+            {
+                id: 'magnet',
+                name: '磁铁',
+                icon: '🧲',
+                price: 120,
+                description: '自动吸引最近的 3 个泡泡到你身边（按空格使用）',
+                effect: 'magnet',
+                owned: false,
+                uses: 3
+            }
+        ];
+
+        // 游戏状态
+        let gameState = {
+            currentLevel: 1,
+            score: 0,
+            coins: 0,
+            lives: 3,
+            combo: 0,
+            maxCombo: 0,
+            totalPopped: 0,
+            currentTarget: 0,
+            isPlaying: false,
+            isPaused: false,
+            bubbles: [],
+            activeEffects: [],
+            ownedItems: {},
+            usedItems: {}
+        };
+
+        // DOM 元素
+        const gameContainer = document.getElementById('gameContainer');
+        const startScreen = document.getElementById('startScreen');
+        const levelCompleteScreen = document.getElementById('levelCompleteScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const shopScreen = document.getElementById('shopScreen');
+
+        const startBtn = document.getElementById('startBtn');
+        const goToShopBtn = document.getElementById('goToShopBtn');
+        const nextLevelBtn = document.getElementById('nextLevelBtn');
+        const restartBtn = document.getElementById('restartBtn');
+        const backToGameBtn = document.getElementById('backToGameBtn');
+
+        const levelDisplay = document.getElementById('levelDisplay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const coinsDisplay = document.getElementById('coinsDisplay');
+        const livesContainer = document.getElementById('livesContainer');
+        const targetDisplay = document.getElementById('targetDisplay');
+        const comboValue = document.getElementById('comboValue');
+        const progressFill = document.getElementById('progressFill');
+        const activeItems = document.getElementById('activeItems');
+        const shopContainer = document.getElementById('shopContainer');
+        const shopCoins = document.getElementById('shopCoins');
+
+        // 游戏循环变量
+        let gameLoop = null;
+        let spawnLoop = null;
+        let lastTime = 0;
+
+        // 字母数组
+        const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+        // 颜色数组
+        const BUBBLE_COLORS = [
+            'linear-gradient(135deg, #ff6b6b, #ee5a52)',
+            'linear-gradient(135deg, #4ecdc4, #44a08d)',
+            'linear-gradient(135deg, #667eea, #764ba2)',
+            'linear-gradient(135deg, #f093fb, #f5576c)',
+            'linear-gradient(135deg, #4facfe, #00f2fe)',
+            'linear-gradient(135deg, #43e97b, #38f9d7)',
+            'linear-gradient(135deg, #fa709a, #fee140)',
+            'linear-gradient(135deg, #a8edea, #fed6e3)',
+            'linear-gradient(135deg, #ffecd2, #fcb69f)',
+            'linear-gradient(135deg, #ff9a9e, #fecfef)'
+        ];
+
+        // 初始化
+        function init() {
+            startBtn.addEventListener('click', startGame);
+            goToShopBtn.addEventListener('click', openShop);
+            nextLevelBtn.addEventListener('click', nextLevel);
+            restartBtn.addEventListener('click', restartGame);
+            backToGameBtn.addEventListener('click', closeShop);
+            document.addEventListener('keydown', handleKeyPress);
+            
+            updateDisplays();
+            renderShop();
+        }
+
+        // 更新显示
+        function updateDisplays() {
+            levelDisplay.textContent = gameState.currentLevel;
+            scoreDisplay.textContent = gameState.score;
+            coinsDisplay.textContent = gameState.coins;
+            targetDisplay.textContent = gameState.currentTarget;
+            comboValue.textContent = gameState.combo;
+            
+            // 更新生命显示
+            const currentLevelData = LEVELS[gameState.currentLevel - 1];
+            livesContainer.innerHTML = '';
+            for (let i = 0; i < currentLevelData.lives; i++) {
+                const life = document.createElement('div');
+                life.className = 'life' + (i >= gameState.lives ? ' lost' : '');
+                livesContainer.appendChild(life);
+            }
+            
+            // 更新进度条
+            const level = LEVELS[gameState.currentLevel - 1];
+            const progress = Math.min(((level.target - gameState.currentTarget) / level.target) * 100, 100);
+            progressFill.style.width = progress + '%';
+            
+            // 更新活跃效果
+            updateActiveEffectsDisplay();
+        }
+
+        // 更新活跃效果显示
+        function updateActiveEffectsDisplay() {
+            activeItems.innerHTML = '';
+            gameState.activeEffects.forEach(effect => {
+                const item = ITEMS.find(i => i.id === effect.id);
+                if (item) {
+                    const div = document.createElement('div');
+                    div.className = 'active-item';
+                    const remaining = Math.ceil((effect.endTime - Date.now()) / 1000);
+                    div.innerHTML = `${item.icon} ${item.name} (${remaining}s)`;
+                    activeItems.appendChild(div);
+                }
+            });
+        }
+
+        // 开始游戏
+        function startGame() {
+            startScreen.classList.add('hidden');
+            gameState.currentLevel = 1;
+            gameState.score = 0;
+            gameState.coins = 0;
+            gameState.totalPopped = 0;
+            gameState.maxCombo = 0;
+            gameState.ownedItems = {};
+            gameState.usedItems = {};
+            gameState.activeEffects = [];
+            
+            startLevel();
+        }
+
+        // 开始关卡
+        function startLevel() {
+            const level = LEVELS[gameState.currentLevel - 1];
+            gameState.lives = level.lives;
+            gameState.currentTarget = level.target;
+            gameState.combo = 0;
+            gameState.bubbles = [];
+            gameState.isPlaying = false;
+            gameState.isPaused = false;
+            
+            // 重置每关使用的道具
+            gameState.usedItems['clearScreen'] = 0;
+            
+            // 清除所有气泡
+            document.querySelectorAll('.bubble').forEach(b => b.remove());
+            
+            updateDisplays();
+            
+            // 倒计时
+            countdown(3, () => {
+                gameState.isPlaying = true;
+                startGameLoop();
+            });
+        }
+
+        // 倒计时
+        function countdown(count, callback) {
+            if (count <= 0) {
+                callback();
+                return;
+            }
+            
+            const countdownEl = document.createElement('div');
+            countdownEl.className = 'countdown';
+            countdownEl.textContent = count;
+            gameContainer.appendChild(countdownEl);
+            
+            setTimeout(() => {
+                countdownEl.remove();
+                countdown(count - 1, callback);
+            }, 1000);
+        }
+
+        // 游戏循环
+        function startGameLoop() {
+            const level = LEVELS[gameState.currentLevel - 1];
+            
+            // 生成气泡循环
+            spawnLoop = setInterval(() => {
+                if (gameState.isPlaying && !gameState.isPaused) {
+                    if (gameState.bubbles.length < level.maxBubbles) {
+                        spawnBubble();
+                    }
+                }
+            }, level.spawnInterval);
+            
+            // 更新循环
+            lastTime = performance.now();
+            gameLoop = requestAnimationFrame(update);
+        }
+
+        // 更新游戏
+        function update(currentTime) {
+            if (!gameState.isPlaying) return;
+            
+            const deltaTime = (currentTime - lastTime) / 1000;
+            lastTime = currentTime;
+            
+            const level = LEVELS[gameState.currentLevel - 1];
+            let speedMultiplier = 1;
+            
+            // 检查减速效果
+            const slowEffect = gameState.activeEffects.find(e => e.id === 'slowTime');
+            if (slowEffect && Date.now() < slowEffect.endTime) {
+                speedMultiplier = 0.5;
+            } else if (slowEffect) {
+                gameState.activeEffects = gameState.activeEffects.filter(e => e.id !== 'slowTime');
+            }
+            
+            // 更新气泡位置
+            gameState.bubbles.forEach((bubble, index) => {
+                bubble.y += level.bubbleSpeed * speedMultiplier * deltaTime * 60;
+                bubble.element.style.top = bubble.y + 'px';
+                
+                // 检查是否到达底部
+                if (bubble.y > window.innerHeight - 50) {
+                    loseLife();
+                    removeBubble(index);
+                }
+            });
+            
+            updateDisplays();
+            gameLoop = requestAnimationFrame(update);
+        }
+
+        // 生成气泡
+        function spawnBubble() {
+            // 找到未使用的字母
+            const usedLetters = gameState.bubbles.map(b => b.letter);
+            const availableLetters = LETTERS.filter(l => !usedLetters.includes(l));
+            
+            if (availableLetters.length === 0) return;
+            
+            const letter = availableLetters[Math.floor(Math.random() * availableLetters.length)];
+            const size = 50 + Math.random() * 30;
+            const x = Math.random() * (window.innerWidth - size);
+            const y = -size;
+            const color = BUBBLE_COLORS[Math.floor(Math.random() * BUBBLE_COLORS.length)];
+            
+            // 创建气泡元素
+            const bubbleElement = document.createElement('div');
+            bubbleElement.className = 'bubble';
+            bubbleElement.style.width = size + 'px';
+            bubbleElement.style.height = size + 'px';
+            bubbleElement.style.left = x + 'px';
+            bubbleElement.style.top = y + 'px';
+            bubbleElement.style.background = color;
+            bubbleElement.style.boxShadow = `0 0 20px rgba(255, 255, 255, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.3)`;
+            bubbleElement.textContent = letter;
+            bubbleElement.dataset.letter = letter;
+            
+            gameContainer.appendChild(bubbleElement);
+            
+            // 添加到游戏状态
+            const bubble = {
+                letter: letter,
+                x: x,
+                y: y,
+                size: size,
+                element: bubbleElement,
+                color: color
+            };
+            
+            gameState.bubbles.push(bubble);
+        }
+
+        // 处理按键
+        function handleKeyPress(e) {
+            if (!gameState.isPlaying || gameState.isPaused) return;
+            
+            const key = e.key.toUpperCase();
+            
+            // 处理空格键（磁铁效果）
+            if (e.code === 'Space') {
+                e.preventDefault();
+                useMagnet();
+                return;
+            }
+            
+            // 检查是否是字母键
+            if (LETTERS.includes(key)) {
+                const bubbleIndex = gameState.bubbles.findIndex(b => b.letter === key);
+                
+                if (bubbleIndex !== -1) {
+                    popBubble(bubbleIndex);
+                } else {
+                    // 按错键，重置连击
+                    gameState.combo = 0;
+                    updateDisplays();
+                }
+            }
+        }
+
+        // 使用磁铁
+        function useMagnet() {
+            if (!gameState.ownedItems['magnet'] || gameState.ownedItems['magnet'].uses <= 0) return;
+            
+            // 找到最近的3个气泡
+            const sortedBubbles = [...gameState.bubbles]
+                .sort((a, b) => b.y - a.y); // 按y坐标降序排列（最下面的先）
+            
+            const bubblesToPop = sortedBubbles.slice(0, Math.min(3, sortedBubbles.length));
+            
+            bubblesToPop.forEach(bubble => {
+                const index = gameState.bubbles.findIndex(b => b.letter === bubble.letter);
+                if (index !== -1) {
+                    popBubble(index, false);
+                }
+            });
+            
+            gameState.ownedItems['magnet'].uses--;
+            renderShop();
+        }
+
+        // 消除气泡
+        function popBubble(index, incrementCombo = true) {
+            const bubble = gameState.bubbles[index];
+            if (!bubble) return;
+            
+            // 添加动画类
+            bubble.element.classList.add('pop');
+            
+            // 创建粒子效果
+            createParticles(bubble.x + bubble.size / 2, bubble.y + bubble.size / 2, bubble.color);
+            
+            // 更新分数
+            let scoreMultiplier = 1;
+            let comboMultiplier = 1;
+            
+            // 检查双倍得分效果
+            const doubleEffect = gameState.activeEffects.find(e => e.id === 'doubleScore');
+            if (doubleEffect && Date.now() < doubleEffect.endTime) {
+                scoreMultiplier = 2;
+            } else if (doubleEffect) {
+                gameState.activeEffects = gameState.activeEffects.filter(e => e.id !== 'doubleScore');
+            }
+            
+            // 检查连击加成效果
+            const comboEffect = gameState.activeEffects.find(e => e.id === 'comboBoost');
+            if (comboEffect && Date.now() < comboEffect.endTime) {
+                comboMultiplier = 2;
+            } else if (comboEffect) {
+                gameState.activeEffects = gameState.activeEffects.filter(e => e.id !== 'comboBoost');
+            }
+            
+            if (incrementCombo) {
+                gameState.combo += comboMultiplier;
+                if (gameState.combo > gameState.maxCombo) {
+                    gameState.maxCombo = gameState.combo;
+                }
+            }
+            
+            const baseScore = 10;
+            const comboBonus = Math.floor(gameState.combo / 5) * 5;
+            const totalScore = (baseScore + comboBonus) * scoreMultiplier;
+            
+            gameState.score += totalScore;
+            gameState.totalPopped++;
+            gameState.currentTarget--;
+            
+            // 移除气泡
+            setTimeout(() => {
+                removeBubble(index);
+            }, 300);
+            
+            updateDisplays();
+            
+            // 检查关卡完成
+            checkLevelComplete();
+        }
+
+        // 创建粒子效果
+        function createParticles(x, y, color) {
+            const particlesContainer = document.createElement('div');
+            particlesContainer.className = 'particles';
+            particlesContainer.style.left = x + 'px';
+            particlesContainer.style.top = y + 'px';
+            
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                const size = 5 + Math.random() * 10;
+                particle.style.width = size + 'px';
+                particle.style.height = size + 'px';
+                particle.style.background = color.includes('linear-gradient') ? 
+                    '#fff' : color;
+                
+                // 随机位置
+                const angle = (Math.PI * 2 * i) / 8;
+                const distance = 20 + Math.random() * 30;
+                particle.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
+                
+                particlesContainer.appendChild(particle);
+            }
+            
+            gameContainer.appendChild(particlesContainer);
+            
+            // 移除粒子
+            setTimeout(() => {
+                particlesContainer.remove();
+            }, 500);
+        }
+
+        // 移除气泡
+        function removeBubble(index) {
+            const bubble = gameState.bubbles[index];
+            if (bubble && bubble.element) {
+                bubble.element.remove();
+            }
+            gameState.bubbles.splice(index, 1);
+        }
+
+        // 失去生命
+        function loseLife() {
+            gameState.lives--;
+            gameState.combo = 0;
+            updateDisplays();
+            
+            if (gameState.lives <= 0) {
+                gameOver();
+            }
+        }
+
+        // 检查关卡完成
+        function checkLevelComplete() {
+            const level = LEVELS[gameState.currentLevel - 1];
+            
+            if (gameState.currentTarget <= 0) {
+                // 检查是否有额外的连击要求
+                if (level.bonusTarget && gameState.maxCombo < level.bonusTarget) {
+                    return; // 还没达到连击要求
+                }
+                
+                levelComplete();
+            }
+        }
+
+        // 关卡完成
+        function levelComplete() {
+            stopGameLoops();
+            gameState.isPlaying = false;
+            
+            const level = LEVELS[gameState.currentLevel - 1];
+            
+            // 奖励金币
+            gameState.coins += level.reward;
+            
+            // 更新关卡完成界面
+            document.getElementById('levelCompleteInfo').textContent = 
+                `第 ${gameState.currentLevel} 关 - ${level.name}`;
+            document.getElementById('levelMissionText').textContent = level.mission;
+            document.getElementById('levelReward').textContent = `🎉 获得 ${level.reward} 金币！`;
+            
+            document.getElementById('levelStats').innerHTML = `
+                <div class="stat-row">
+                    <span>消灭泡泡:</span>
+                    <span class="stat-value">${level.target - gameState.currentTarget}</span>
+                </div>
+                <div class="stat-row">
+                    <span>最高连击:</span>
+                    <span class="stat-value">${gameState.maxCombo}</span>
+                </div>
+                <div class="stat-row">
+                    <span>总分数:</span>
+                    <span class="stat-value">${gameState.score}</span>
+                </div>
+            `;
+            
+            // 检查是否是最后一关
+            if (gameState.currentLevel >= 10) {
+                document.getElementById('nextLevelBtn').textContent = '完成游戏！';
+                document.getElementById('nextLevelBtn').onclick = showFinalScreen;
+            } else {
+                document.getElementById('nextLevelBtn').textContent = '下一关';
+                document.getElementById('nextLevelBtn').onclick = nextLevel;
+            }
+            
+            levelCompleteScreen.classList.remove('hidden');
+            updateDisplays();
+        }
+
+        // 游戏结束
+        function gameOver() {
+            stopGameLoops();
+            gameState.isPlaying = false;
+            
+            document.getElementById('gameOverLevel').textContent = 
+                `在第 ${gameState.currentLevel} 关失败`;
+            
+            document.getElementById('finalStats').innerHTML = `
+                <div class="stat-row">
+                    <span>消灭泡泡:</span>
+                    <span class="stat-value">${gameState.totalPopped}</span>
+                </div>
+                <div class="stat-row">
+                    <span>最高连击:</span>
+                    <span class="stat-value">${gameState.maxCombo}</span>
+                </div>
+                <div class="stat-row">
+                    <span>总分数:</span>
+                    <span class="stat-value">${gameState.score}</span>
+                </div>
+                <div class="stat-row">
+                    <span>获得金币:</span>
+                    <span class="stat-value">${gameState.coins}</span>
+                </div>
+            `;
+            
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // 显示最终画面
+        function showFinalScreen() {
+            levelCompleteScreen.classList.add('hidden');
+            
+            document.getElementById('gameOverLevel').textContent = 
+                '🎉 恭喜通关！你是打字大师！';
+            
+            document.getElementById('finalStats').innerHTML = `
+                <div class="stat-row">
+                    <span>消灭泡泡:</span>
+                    <span class="stat-value">${gameState.totalPopped}</span>
+                </div>
+                <div class="stat-row">
+                    <span>最高连击:</span>
+                    <span class="stat-value">${gameState.maxCombo}</span>
+                </div>
+                <div class="stat-row">
+                    <span>总分数:</span>
+                    <span class="stat-value">${gameState.score}</span>
+                </div>
+                <div class="stat-row">
+                    <span>获得金币:</span>
+                    <span class="stat-value">${gameState.coins}</span>
+                </div>
+            `;
+            
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        // 下一关
+        function nextLevel() {
+            levelCompleteScreen.classList.add('hidden');
+            
+            if (gameState.currentLevel < 10) {
+                gameState.currentLevel++;
+                gameState.maxCombo = 0; // 重置本关最高连击
+                startLevel();
+            }
+        }
+
+        // 重新开始
+        function restartGame() {
+            gameOverScreen.classList.add('hidden');
+            startGame();
+        }
+
+        // 停止游戏循环
+        function stopGameLoops() {
+            if (spawnLoop) {
+                clearInterval(spawnLoop);
+                spawnLoop = null;
+            }
+            if (gameLoop) {
+                cancelAnimationFrame(gameLoop);
+                gameLoop = null;
+            }
+        }
+
+        // 打开商店
+        function openShop() {
+            levelCompleteScreen.classList.add('hidden');
+            shopScreen.classList.remove('hidden');
+            shopCoins.textContent = gameState.coins;
+            renderShop();
+        }
+
+        // 关闭商店
+        function closeShop() {
+            shopScreen.classList.add('hidden');
+            levelCompleteScreen.classList.remove('hidden');
+        }
+
+        // 渲染商店
+        function renderShop() {
+            shopContainer.innerHTML = '';
+            
+            ITEMS.forEach(item => {
+                const isOwned = gameState.ownedItems[item.id];
+                const canAfford = gameState.coins >= item.price;
+                const isDisabled = isOwned && !item.uses;
+                
+                const div = document.createElement('div');
+                div.className = `shop-item ${isOwned ? 'owned' : ''} ${!canAfford && !isOwned ? 'disabled' : ''}`;
+                
+                let statusText = '';
+                if (isOwned) {
+                    if (item.uses) {
+                        statusText = `<div class="item-status">剩余: ${gameState.ownedItems[item.id]?.uses || 0} 次</div>`;
+                    } else {
+                        statusText = `<div class="item-status">已拥有 ✓</div>`;
+                    }
+                }
+                
+                div.innerHTML = `
+                    <div class="item-icon">${item.icon}</div>
+                    <div class="item-name">${item.name}</div>
+                    <div class="item-price">${isOwned ? '已购买' : '💰 ' + item.price}</div>
+                    <div class="item-desc">${item.description}</div>
+                    ${statusText}
+                `;
+                
+                div.addEventListener('click', () => {
+                    if (!isOwned && canAfford) {
+                        buyItem(item);
+                    } else if (isOwned && item.effect === 'life' && gameState.lives < LEVELS[gameState.currentLevel - 1].lives) {
+                        useItem(item);
+                    } else if (isOwned && (item.effect === 'clear' || item.effect === 'slow' || item.effect === 'double' || item.effect === 'combo')) {
+                        useItem(item);
+                    }
+                });
+                
+                shopContainer.appendChild(div);
+            });
+        }
+
+        // 购买道具
+        function buyItem(item) {
+            if (gameState.coins < item.price) return;
+            
+            gameState.coins -= item.price;
+            gameState.ownedItems[item.id] = {
+                ...item,
+                uses: item.uses || 1
+            };
+            
+            shopCoins.textContent = gameState.coins;
+            updateDisplays();
+            renderShop();
+        }
+
+        // 使用道具
+        function useItem(item) {
+            const ownedItem = gameState.ownedItems[item.id];
+            if (!ownedItem) return;
+            
+            switch (item.effect) {
+                case 'life':
+                    const level = LEVELS[gameState.currentLevel - 1];
+                    if (gameState.lives < level.lives) {
+                        gameState.lives++;
+                        updateDisplays();
+                    }
+                    break;
+                    
+                case 'clear':
+                    if (!gameState.usedItems['clearScreen']) {
+                        gameState.usedItems['clearScreen'] = 0;
+                    }
+                    if (gameState.usedItems['clearScreen'] < (item.useLimit || 1)) {
+                        // 清除所有气泡
+                        while (gameState.bubbles.length > 0) {
+                            popBubble(0, false);
+                        }
+                        gameState.usedItems['clearScreen']++;
+                    }
+                    break;
+                    
+                case 'slow':
+                case 'double':
+                case 'combo':
+                    // 添加持续效果
+                    gameState.activeEffects.push({
+                        id: item.id,
+                        endTime: Date.now() + item.duration
+                    });
+                    updateDisplays();
+                    break;
+            }
+        }
+
+        // 初始化游戏
+        init();
+    </script>
+</body>
+</html>
